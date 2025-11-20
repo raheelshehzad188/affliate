@@ -255,7 +255,7 @@ if (!isset($settings)) {
     </nav>
     <?php endif; ?>
     
-    <div class="container-fluid mt-4">
+    <div class="">
         <?php if ($this->session->flashdata('success')): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <i class="fas fa-check-circle"></i> <?php echo $this->session->flashdata('success'); ?>
