@@ -23,7 +23,21 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | a PHP script and you can easily do that on your own.
 |
 */
-$config['base_url'] = 'http://192.168.1.10/affliate/';
+// Detect server environment and set base URL accordingly
+$server_ip = isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : 'localhost';
+$is_localhost = ($server_ip === '127.0.0.1' || $server_ip === '::1' || $server_ip === 'localhost');
+$is_local_network = (strpos($server_ip, '192.168.') === 0);
+
+if ($is_localhost) {
+	// Localhost base URL
+	$config['base_url'] = 'http://localhost/affliate/';
+} elseif ($is_local_network) {
+	// Local network (192.168.x.x) base URL
+	$config['base_url'] = 'http://192.168.1.10/affliate/';
+} else {
+	// Live/Production base URL
+	$config['base_url'] = 'https://peachpuff-armadillo-851546.hostingersite.com/affliate/';
+}
 
 /*
 |--------------------------------------------------------------------------

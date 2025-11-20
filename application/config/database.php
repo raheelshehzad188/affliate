@@ -73,12 +73,38 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $active_group = 'default';
 $query_builder = TRUE;
 
+// Detect server environment based on IP address
+$server_ip = isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : 'localhost';
+$is_localhost = ($server_ip === '127.0.0.1' || $server_ip === '::1' || $server_ip === 'localhost');
+$is_local_network = (strpos($server_ip, '192.168.') === 0);
+
+// Set database credentials based on environment
+if ($is_localhost) {
+	// Localhost database settings
+	$db_hostname = 'localhost';
+	$db_username = 'root';
+	$db_password = '';
+	$db_database = 'affiliate_db';
+} elseif ($is_local_network) {
+	// Local network (192.168.x.x) database settings
+	$db_hostname = 'localhost';
+	$db_username = 'root';
+	$db_password = '';
+	$db_database = 'affiliate_db';
+} else {
+	// Live/Production database settings
+	$db_hostname = 'localhost';
+	$db_username = 'u293323553_aff';
+	$db_password = '3d$j$9F^U*A';
+	$db_database = 'u293323553_aff';
+}
+
 $db['default'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
-	'username' => 'root',
-	'password' => '',
-	'database' => 'affiliate_db',
+	'hostname' => $db_hostname,
+	'username' => $db_username,
+	'password' => $db_password,
+	'database' => $db_database,
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
