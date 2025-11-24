@@ -5,7 +5,7 @@ class Admin extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->load->model(['Admin_model', 'Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model']);
+        $this->load->model(['Admin_model', 'Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model', 'Activity_log_model']);
         
         // Don't check authentication for login and logout methods
         $current_method = $this->uri->segment(2);
@@ -16,6 +16,29 @@ class Admin extends CI_Controller {
                 redirect('admin/login');
             }
         }
+    }
+
+    // Helper method to check if current user is super admin
+    private function check_is_super_admin() {
+        $admin_id = $this->session->userdata('admin_id');
+        return $admin_id ? $this->Admin_model->is_super_admin($admin_id) : false;
+    }
+
+    // Helper method to log activity
+    private function log_activity($action_type, $action_description, $entity_type = null, $entity_id = null, $old_data = null, $new_data = null) {
+        $admin_id = $this->session->userdata('admin_id');
+        $admin_name = $this->session->userdata('admin_name');
+        
+        $this->Activity_log_model->create([
+            'admin_id' => $admin_id,
+            'admin_name' => $admin_name,
+            'action_type' => $action_type,
+            'action_description' => $action_description,
+            'entity_type' => $entity_type,
+            'entity_id' => $entity_id,
+            'old_data' => $old_data,
+            'new_data' => $new_data
+        ]);
     }
 
     // Dashboard
@@ -30,7 +53,8 @@ class Admin extends CI_Controller {
             'total_leads' => $this->Lead_model->count([], $from_date, $to_date),
             'confirmed_leads' => $this->Lead_model->count(['status' => 'confirmed'], $from_date, $to_date),
             'from_date' => $from_date,
-            'to_date' => $to_date
+            'to_date' => $to_date,
+            'is_super_admin' => $this->check_is_super_admin()
         ];
         
         $this->load->view('admin/dashboard', $data);
@@ -83,8 +107,20 @@ class Admin extends CI_Controller {
     public function approve_affiliate($id) {
         $status = $this->input->post('status');
         if ($status && in_array($status, ['active', 'inactive', 'pending'])) {
-            $this->Affiliate_model->update($id, ['status' => $status]);
-            $this->session->set_flashdata('success', 'Affiliate status updated');
+            $affiliate = $this->Affiliate_model->get_by_id($id);
+            $old_status = $affiliate ? $affiliate->status : null;
+            
+            if ($this->Affiliate_model->update($id, ['status' => $status])) {
+                $this->log_activity(
+                    'affiliate_status_update',
+                    "Affiliate status changed from '{$old_status}' to '{$status}'",
+                    'affiliate',
+                    $id,
+                    ['status' => $old_status],
+                    ['status' => $status]
+                );
+                $this->session->set_flashdata('success', 'Affiliate status updated');
+            }
         }
         redirect('admin/affiliates');
     }
@@ -217,7 +253,28 @@ class Admin extends CI_Controller {
             }
             
             if (!empty($update_data)) {
+                // Get old data for logging
+                $old_affiliate = $this->Affiliate_model->get_by_id($id);
+                $old_data = [
+                    'full_name' => $old_affiliate->full_name,
+                    'status' => $old_affiliate->status,
+                    'website' => $old_affiliate->website,
+                    'is_special' => $old_affiliate->is_special,
+                    'discount_min' => $old_affiliate->discount_min,
+                    'discount_max' => $old_affiliate->discount_max,
+                    'slug' => $old_affiliate->slug
+                ];
+                
                 if ($this->Affiliate_model->update($id, $update_data)) {
+                    // Log the update
+                    $this->log_activity(
+                        'affiliate_update',
+                        "Affiliate '{$old_affiliate->full_name}' (ID: {$id}) updated",
+                        'affiliate',
+                        $id,
+                        $old_data,
+                        $update_data
+                    );
                     $this->session->set_flashdata('success', 'Affiliate updated successfully');
                 } else {
                     $this->session->set_flashdata('error', 'Failed to update affiliate. Please check database connection and column exists.');
@@ -299,6 +356,9 @@ class Admin extends CI_Controller {
             $sale_amount = $this->input->post('sale_amount');
             $feedback = $this->input->post('feedback');
             
+            // Get old lead data for logging
+            $old_lead = $this->Lead_model->get_by_id($id);
+            
             // First confirm the lead
             if ($this->Lead_model->confirm($id, $sale_amount, $feedback)) {
                 // Process commissions (will be created with 'confirmed' status)
@@ -306,6 +366,16 @@ class Admin extends CI_Controller {
                 
                 // Also update any existing commissions for this lead to 'confirmed'
                 $this->Commission_model->update_status_by_lead($id, 'pending');
+                
+                // Log the lead confirmation
+                $this->log_activity(
+                    'lead_confirmed',
+                    "Lead #{$id} ({$old_lead->name}) confirmed with sale amount: $" . number_format($sale_amount, 2),
+                    'lead',
+                    $id,
+                    ['status' => $old_lead->status, 'sale_amount' => $old_lead->sale_amount],
+                    ['status' => 'confirmed', 'sale_amount' => $sale_amount, 'feedback' => $feedback]
+                );
                 
                 $this->session->set_flashdata('success', 'Lead confirmed and commissions processed');
             } else {
@@ -351,7 +421,8 @@ class Admin extends CI_Controller {
                 $this->session->set_userdata([
                     'admin_id' => $admin->id,
                     'admin_name' => $admin->full_name,
-                    'admin_username' => $admin->username
+                    'admin_username' => $admin->username,
+                    'admin_role' => $admin->role
                 ]);
                 redirect('admin/dashboard');
             } else {
@@ -364,7 +435,7 @@ class Admin extends CI_Controller {
 
     // Admin Logout
     public function logout() {
-        $this->session->unset_userdata(['admin_id', 'admin_name', 'admin_username']);
+        $this->session->unset_userdata(['admin_id', 'admin_name', 'admin_username', 'admin_role']);
         redirect('admin/login');
     }
     
@@ -435,6 +506,302 @@ class Admin extends CI_Controller {
         ];
         
         $this->load->view('admin/settings', $data);
+    }
+
+    // Sub-Admin Management (Only for super_admin)
+    public function sub_admins() {
+        // Check if user is super admin
+        $admin_id = $this->session->userdata('admin_id');
+        if (!$this->Admin_model->is_super_admin($admin_id)) {
+            $this->session->set_flashdata('error', 'Access denied. Only super admin can manage sub-admins.');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        $filters = [];
+        $search = $this->input->get('search');
+        if (!empty($search)) {
+            $filters['search'] = $search;
+        }
+
+        $role = $this->input->get('role');
+        if (!empty($role)) {
+            $filters['role'] = $role;
+        }
+
+        $admins = $this->Admin_model->get_all($filters);
+        
+        $data = [
+            'admins' => $admins,
+            'filters' => [
+                'search' => $search ?: '',
+                'role' => $role ?: ''
+            ],
+            'is_super_admin' => true
+        ];
+        
+        $this->load->view('admin/sub_admins', $data);
+    }
+
+    // Add Sub-Admin
+    public function add_sub_admin() {
+        // Check if user is super admin
+        $admin_id = $this->session->userdata('admin_id');
+        if (!$this->Admin_model->is_super_admin($admin_id)) {
+            $this->session->set_flashdata('error', 'Access denied. Only super admin can add sub-admins.');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        if ($this->input->post()) {
+            $this->load->library('form_validation');
+            $this->form_validation->set_rules('username', 'Username', 'required|callback_check_admin_username');
+            $this->form_validation->set_rules('email', 'Email', 'required|valid_email|callback_check_admin_email');
+            $this->form_validation->set_rules('password', 'Password', 'required|min_length[6]');
+            $this->form_validation->set_rules('full_name', 'Full Name', 'required');
+
+            if ($this->form_validation->run()) {
+                $data = [
+                    'username' => $this->input->post('username'),
+                    'email' => $this->input->post('email'),
+                    'password' => $this->input->post('password'),
+                    'full_name' => $this->input->post('full_name'),
+                    'role' => 'admin' // Sub-admins are always 'admin', not 'super_admin'
+                ];
+
+                $new_admin_id = $this->Admin_model->create($data);
+                
+                if ($new_admin_id) {
+                    // Log the creation
+                    $this->log_activity(
+                        'sub_admin_created',
+                        "Sub-admin '{$data['full_name']}' (Username: {$data['username']}) created",
+                        'admin_user',
+                        $new_admin_id,
+                        null,
+                        ['username' => $data['username'], 'email' => $data['email'], 'full_name' => $data['full_name']]
+                    );
+                    $this->session->set_flashdata('success', 'Sub-admin created successfully');
+                    redirect('admin/sub_admins');
+                } else {
+                    $this->session->set_flashdata('error', 'Failed to create sub-admin');
+                }
+            }
+        }
+
+        $data = ['is_super_admin' => true];
+        $this->load->view('admin/add_sub_admin', $data);
+    }
+
+    // Edit Sub-Admin
+    public function edit_sub_admin($id) {
+        // Check if user is super admin
+        $admin_id = $this->session->userdata('admin_id');
+        if (!$this->Admin_model->is_super_admin($admin_id)) {
+            $this->session->set_flashdata('error', 'Access denied. Only super admin can edit sub-admins.');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        $admin = $this->Admin_model->get_by_id($id);
+        if (!$admin) {
+            $this->session->set_flashdata('error', 'Admin not found');
+            redirect('admin/sub_admins');
+            return;
+        }
+
+        // Don't allow editing super_admin
+        if ($admin->role === 'super_admin' && $admin->id != $admin_id) {
+            $this->session->set_flashdata('error', 'Cannot edit another super admin');
+            redirect('admin/sub_admins');
+            return;
+        }
+
+        if ($this->input->post()) {
+            $old_data = [
+                'username' => $admin->username,
+                'email' => $admin->email,
+                'full_name' => $admin->full_name,
+                'role' => $admin->role
+            ];
+
+            $update_data = [
+                'full_name' => $this->input->post('full_name'),
+                'email' => $this->input->post('email')
+            ];
+
+            // Update password if provided
+            $new_password = $this->input->post('password');
+            if (!empty($new_password)) {
+                if (strlen($new_password) >= 6) {
+                    $update_data['password'] = $new_password;
+                } else {
+                    $this->session->set_flashdata('error', 'Password must be at least 6 characters');
+                    redirect('admin/edit_sub_admin/' . $id);
+                    return;
+                }
+            }
+
+            if ($this->Admin_model->update($id, $update_data)) {
+                // Log the update
+                $this->log_activity(
+                    'sub_admin_updated',
+                    "Sub-admin '{$update_data['full_name']}' (ID: {$id}) updated",
+                    'admin_user',
+                    $id,
+                    $old_data,
+                    $update_data
+                );
+                $this->session->set_flashdata('success', 'Sub-admin updated successfully');
+                redirect('admin/sub_admins');
+            } else {
+                $this->session->set_flashdata('error', 'Failed to update sub-admin');
+            }
+        }
+
+        $data = [
+            'admin' => $admin,
+            'is_super_admin' => true
+        ];
+        $this->load->view('admin/edit_sub_admin', $data);
+    }
+
+    // Delete Sub-Admin
+    public function delete_sub_admin($id) {
+        // Check if user is super admin
+        $admin_id = $this->session->userdata('admin_id');
+        if (!$this->Admin_model->is_super_admin($admin_id)) {
+            $this->session->set_flashdata('error', 'Access denied. Only super admin can delete sub-admins.');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        // Don't allow deleting yourself
+        if ($id == $admin_id) {
+            $this->session->set_flashdata('error', 'Cannot delete your own account');
+            redirect('admin/sub_admins');
+            return;
+        }
+
+        $admin = $this->Admin_model->get_by_id($id);
+        if (!$admin) {
+            $this->session->set_flashdata('error', 'Admin not found');
+            redirect('admin/sub_admins');
+            return;
+        }
+
+        if ($this->Admin_model->delete($id)) {
+            // Log the deletion
+            $this->log_activity(
+                'sub_admin_deleted',
+                "Sub-admin '{$admin->full_name}' (Username: {$admin->username}) deleted",
+                'admin_user',
+                $id,
+                ['username' => $admin->username, 'email' => $admin->email, 'full_name' => $admin->full_name],
+                null
+            );
+            $this->session->set_flashdata('success', 'Sub-admin deleted successfully');
+        } else {
+            $this->session->set_flashdata('error', 'Failed to delete sub-admin. Cannot delete super admin.');
+        }
+        
+        redirect('admin/sub_admins');
+    }
+
+    // Activity Logs (Only for super_admin)
+    public function activity_logs() {
+        // Check if user is super admin
+        $admin_id = $this->session->userdata('admin_id');
+        if (!$this->Admin_model->is_super_admin($admin_id)) {
+            $this->session->set_flashdata('error', 'Access denied. Only super admin can view activity logs.');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        // Check if activity_logs table exists
+        $table_exists = $this->db->table_exists('activity_logs');
+        
+        if (!$table_exists) {
+            $this->session->set_flashdata('error', 'Activity logs table does not exist. Please run the SQL migration file: all_changes_today.sql');
+            redirect('admin/dashboard');
+            return;
+        }
+
+        $filters = [];
+        
+        $admin_filter = $this->input->get('admin_id');
+        if (!empty($admin_filter)) {
+            $filters['admin_id'] = $admin_filter;
+        }
+        
+        $action_type = $this->input->get('action_type');
+        if (!empty($action_type)) {
+            $filters['action_type'] = $action_type;
+        }
+        
+        $entity_type = $this->input->get('entity_type');
+        if (!empty($entity_type)) {
+            $filters['entity_type'] = $entity_type;
+        }
+        
+        $from_date = $this->input->get('from_date');
+        if (!empty($from_date)) {
+            $filters['from_date'] = $from_date;
+        }
+        
+        $to_date = $this->input->get('to_date');
+        if (!empty($to_date)) {
+            $filters['to_date'] = $to_date;
+        }
+
+        $page = $this->input->get('page') ?: 1;
+        $per_page = 20;
+        $offset = ($page - 1) * $per_page;
+
+        $logs = $this->Activity_log_model->get_all($filters, $per_page, $offset);
+        $total = $this->Activity_log_model->count($filters);
+
+        // Get all admins for filter dropdown
+        $all_admins = $this->Admin_model->get_all();
+
+        $data = [
+            'logs' => $logs,
+            'filters' => [
+                'admin_id' => $admin_filter ?: '',
+                'action_type' => $action_type ?: '',
+                'entity_type' => $entity_type ?: '',
+                'from_date' => $from_date ?: '',
+                'to_date' => $to_date ?: ''
+            ],
+            'pagination' => [
+                'total' => $total,
+                'per_page' => $per_page,
+                'current_page' => $page
+            ],
+            'admins' => $all_admins,
+            'is_super_admin' => true
+        ];
+
+        $this->load->view('admin/activity_logs', $data);
+    }
+
+    // Validation callbacks for sub-admin
+    public function check_admin_username($username) {
+        $existing = $this->Admin_model->get_by_username($username);
+        if ($existing) {
+            $this->form_validation->set_message('check_admin_username', 'Username already exists');
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    public function check_admin_email($email) {
+        $existing = $this->Admin_model->get_by_email($email);
+        if ($existing) {
+            $this->form_validation->set_message('check_admin_email', 'Email already exists');
+            return FALSE;
+        }
+        return TRUE;
     }
 }
 

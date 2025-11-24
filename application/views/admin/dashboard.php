@@ -30,6 +30,18 @@
                         <i class="fas fa-cog"></i> Settings
                     </a>
                 </li>
+                <?php if (isset($is_super_admin) && $is_super_admin): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/sub_admins'); ?>">
+                        <i class="fas fa-user-shield"></i> Sub-Admins
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/activity_logs'); ?>">
+                        <i class="fas fa-history"></i> Activity Logs
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/change_password'); ?>">
                         <i class="fas fa-key"></i> Change Password
