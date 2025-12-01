@@ -67,12 +67,28 @@ class Auth extends CI_Controller {
                 
                 if ($affiliate_id) {
                     // Send verification email
-                    $affiliate = $this->Affiliate_model->get_by_id($affiliate_id);
-                    $this->send_verification_email($affiliate);
-                    
-                    $this->session->set_flashdata('success', 'Account created! Please check your email to verify.');
+                    try {
+                        $affiliate = $this->Affiliate_model->get_by_id($affiliate_id);
+                        if ($affiliate) {
+                            $this->send_verification_email($affiliate);
+                            $this->session->set_flashdata('success', 'Account created successfully! Please check your email to verify your account.');
+                        } else {
+                            $this->session->set_flashdata('error', 'Account created but could not send verification email. Please contact support.');
+                        }
+                    } catch (Exception $e) {
+                        log_message('error', 'Error sending verification email: ' . $e->getMessage());
+                        $this->session->set_flashdata('success', 'Account created successfully! However, verification email could not be sent. Please contact support.');
+                    }
                     redirect('auth/signup');
+                } else {
+                    // Get database error
+                    $db_error = $this->db->error();
+                    log_message('error', 'Failed to create affiliate: ' . print_r($db_error, true));
+                    $this->session->set_flashdata('error', 'Failed to create account. Please try again or contact support.');
                 }
+            } else {
+                // Validation failed - errors will be shown automatically
+                log_message('debug', 'Signup validation failed');
             }
         }
 
