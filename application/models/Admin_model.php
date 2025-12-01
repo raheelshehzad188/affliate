@@ -10,12 +10,57 @@ class Admin_model extends CI_Model {
 
     // Verify admin login
     public function verify_login($username, $password) {
-        $admin = $this->db->where('username', $username)->get('admin_users')->row();
-        if ($admin && md5($password) === $admin->password) {
-            // Update last login
-            $this->db->where('id', $admin->id)->update('admin_users', ['last_login' => date('Y-m-d H:i:s')]);
-            return $admin;
+        // Explicitly select all columns including id
+        $admin = $this->db->select('*')
+                          ->where('username', $username)
+                          ->get('admin_users')
+                          ->row();
+        
+        if ($admin) {
+            // Check if admin object has id property
+            if (!isset($admin->id) || empty($admin->id)) {
+                log_message('error', 'Admin object missing ID field - Username: ' . $username);
+                return false;
+            }
+            
+            // Debug: Log what we found
+            log_message('debug', 'Admin found - ID: ' . $admin->id . ', Username: ' . $admin->username);
+            log_message('debug', 'Password check - Input MD5: ' . md5($password) . ', DB Hash: ' . $admin->password);
+            
+            if (md5($password) === $admin->password) {
+                // Update last login (only if column exists)
+                try {
+                    $this->db->where('id', $admin->id)->update('admin_users', ['last_login' => date('Y-m-d H:i:s')]);
+                } catch (Exception $e) {
+                    // Ignore if last_login column doesn't exist
+                    log_message('debug', 'Could not update last_login: ' . $e->getMessage());
+                }
+                
+                // Ensure role is set (default to 'admin' if not set)
+                if (!isset($admin->role) || empty($admin->role)) {
+                    $admin->role = 'admin';
+                }
+                
+                // Ensure full_name is set (default to username if not set)
+                if (!isset($admin->full_name) || empty($admin->full_name)) {
+                    $admin->full_name = $admin->username;
+                }
+                
+                // Double check ID is still there
+                if (!isset($admin->id) || !$admin->id) {
+                    log_message('error', 'Admin ID lost after processing - Username: ' . $username);
+                    return false;
+                }
+                
+                log_message('debug', 'Login verification successful - ID: ' . $admin->id);
+                return $admin;
+            } else {
+                log_message('debug', 'Password mismatch for username: ' . $username);
+            }
+        } else {
+            log_message('debug', 'Admin not found with username: ' . $username);
         }
+        
         return false;
     }
 

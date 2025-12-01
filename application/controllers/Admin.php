@@ -417,18 +417,54 @@ class Admin extends CI_Controller {
             $username = $this->input->post('username');
             $password = $this->input->post('password');
             
+            // Debug: Log the attempt
+            log_message('debug', 'Login attempt - Username: ' . $username);
+            
             $admin = $this->Admin_model->verify_login($username, $password);
             
-            if ($admin) {
-                $this->session->set_userdata([
-                    'admin_id' => $admin->id,
-                    'admin_name' => $admin->full_name,
-                    'admin_username' => $admin->username,
-                    'admin_role' => $admin->role
-                ]);
-                redirect('admin/dashboard');
+            // Debug: Check what verify_login returned
+            if ($admin && is_object($admin)) {
+                // Convert to array to check properties
+                $admin_array = (array)$admin;
+                
+                // Check if admin has ID
+                if (!isset($admin->id) || empty($admin->id)) {
+                    log_message('error', 'Admin object missing ID - Object: ' . print_r($admin_array, true));
+                    $this->session->set_flashdata('error', 'Login failed: Invalid admin data (missing ID)');
+                } else {
+                    log_message('debug', 'Login successful - Admin ID: ' . $admin->id . ', Role: ' . (isset($admin->role) ? $admin->role : 'NOT SET'));
+                    
+                    // Set session data
+                    $session_data = [
+                        'admin_id' => (int)$admin->id,  // Ensure it's an integer
+                        'admin_username' => $admin->username,
+                        'admin_role' => isset($admin->role) ? $admin->role : 'admin'
+                    ];
+                    
+                    // Add full_name if it exists
+                    if (isset($admin->full_name) && !empty($admin->full_name)) {
+                        $session_data['admin_name'] = $admin->full_name;
+                    } else {
+                        $session_data['admin_name'] = $admin->username;
+                    }
+                    
+                    // Set session
+                    $this->session->set_userdata($session_data);
+                    
+                    // Verify session was set
+                    $session_check = $this->session->userdata('admin_id');
+                    if ($session_check) {
+                        log_message('debug', 'Session set successfully - Admin ID: ' . $session_check . ' - Redirecting to dashboard');
+                        redirect('admin/dashboard');
+                        return; // Important: stop execution after redirect
+                    } else {
+                        log_message('error', 'Session not set after login attempt - Session data: ' . print_r($this->session->all_userdata(), true));
+                        $this->session->set_flashdata('error', 'Login failed: Session error');
+                    }
+                }
             } else {
-                $this->session->set_flashdata('error', 'Invalid credentials');
+                log_message('debug', 'Login failed - verify_login returned: ' . ($admin ? gettype($admin) : 'false'));
+                $this->session->set_flashdata('error', 'Invalid username or password');
             }
         }
         

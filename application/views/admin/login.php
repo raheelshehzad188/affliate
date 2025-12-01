@@ -8,6 +8,20 @@
                     <h4 class="mb-0"><i class="fas fa-shield-alt"></i> Admin Login</h4>
                 </div>
                 <div class="card-body">
+                    <?php if ($this->session->flashdata('error')): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> <?php echo $this->session->flashdata('error'); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($this->session->flashdata('success')): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> <?php echo $this->session->flashdata('success'); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+                    
                     <form method="POST" action="<?php echo base_url('admin/login'); ?>">
                         <div class="mb-3">
                             <label class="form-label">Username</label>
