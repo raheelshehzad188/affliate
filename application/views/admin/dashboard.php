@@ -5,6 +5,24 @@
         <div class="col-md-3 sidebar">
             <h4 class="text-center mb-4"><i class="fas fa-shield-alt"></i> Admin</h4>
             <ul class="nav flex-column">
+                <?php 
+                $admin_role = $this->session->userdata('admin_role'); 
+                $is_leads_only = ($admin_role === 'leads_access'); 
+                ?>
+                <?php if ($is_leads_only): ?>
+                <!-- Leads Access: Dashboard, Leads, Logout -->
+                <li class="nav-item">
+                    <a class="nav-link active" href="<?php echo base_url('admin/dashboard'); ?>">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/leads'); ?>">
+                        <i class="fas fa-list"></i> Leads
+                    </a>
+                </li>
+                <?php else: ?>
+                <!-- Full Access -->
                 <li class="nav-item">
                     <a class="nav-link active" href="<?php echo base_url('admin/dashboard'); ?>">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -26,6 +44,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/withdraw_requests'); ?>">
+                        <i class="fas fa-money-bill-wave"></i> Withdraw Requests
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/settings'); ?>">
                         <i class="fas fa-cog"></i> Settings
                     </a>
@@ -42,11 +65,14 @@
                     </a>
                 </li>
                 <?php endif; ?>
+                <?php if (!$is_leads_only): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/change_password'); ?>">
                         <i class="fas fa-key"></i> Change Password
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/logout'); ?>">
                         <i class="fas fa-sign-out-alt"></i> Logout

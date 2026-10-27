@@ -92,7 +92,11 @@
 </div>
 <?php endif; ?>
 
-<div class="landing-hero" style="<?php echo $affiliate->cover_image ? 'background-image: url(' . base_url($affiliate->cover_image) . '); background-size: cover; background-position: center;' : ''; ?>">
+<?php 
+$cover_img = !empty($affiliate->cover_image) ? $affiliate->cover_image : (isset($default_cover_image) && !empty($default_cover_image) ? $default_cover_image : '');
+$cover_url = $cover_img ? (strpos($cover_img, 'http') === 0 ? $cover_img : base_url($cover_img)) : '';
+?>
+<div class="landing-hero" style="<?php echo $cover_url ? 'background-image: url(' . htmlspecialchars($cover_url) . '); background-size: cover; background-position: center;' : ''; ?>">
     <div class="container" style="position: relative; z-index: 1;">
         <h1 class="display-4">Welcome!</h1>
         <p class="lead">Get in touch with us through <?php echo htmlspecialchars($affiliate->full_name); ?></p>

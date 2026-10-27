@@ -5,6 +5,11 @@
         <div class="col-md-3 sidebar">
             <h4 class="text-center mb-4"><i class="fas fa-shield-alt"></i> Admin</h4>
             <ul class="nav flex-column">
+                <?php 
+                $is_leads_only = isset($is_leads_only) ? $is_leads_only : ($this->session->userdata('admin_role') === 'leads_access'); 
+                ?>
+                <?php if ($is_leads_only): ?>
+                <!-- Leads Access: Dashboard, Leads, Logout -->
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/dashboard'); ?>">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -13,6 +18,58 @@
                 <li class="nav-item">
                     <a class="nav-link active" href="<?php echo base_url('admin/leads'); ?>">
                         <i class="fas fa-list"></i> Leads
+                    </a>
+                </li>
+                <?php else: ?>
+                <!-- Full Access -->
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/dashboard'); ?>">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/affiliates'); ?>">
+                        <i class="fas fa-users"></i> Affiliates
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="<?php echo base_url('admin/leads'); ?>">
+                        <i class="fas fa-list"></i> Leads
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/commissions'); ?>">
+                        <i class="fas fa-dollar-sign"></i> Commissions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/settings'); ?>">
+                        <i class="fas fa-cog"></i> Settings
+                    </a>
+                </li>
+                <?php if (isset($is_super_admin) && $is_super_admin): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/sub_admins'); ?>">
+                        <i class="fas fa-user-shield"></i> Sub-Admins
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/activity_logs'); ?>">
+                        <i class="fas fa-history"></i> Activity Logs
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php if (!$is_leads_only): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/change_password'); ?>">
+                        <i class="fas fa-key"></i> Change Password
+                    </a>
+                </li>
+                <?php endif; ?>
+                <?php endif; ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo base_url('admin/logout'); ?>">
+                        <i class="fas fa-sign-out-alt"></i> Logout
                     </a>
                 </li>
             </ul>

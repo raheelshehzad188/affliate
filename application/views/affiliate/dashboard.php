@@ -42,6 +42,60 @@
         <!-- Main Content -->
         <div class="col-md-9">
             <h2 class="mb-4">Welcome, <?php echo htmlspecialchars($affiliate->full_name); ?>!</h2>
+
+            <!-- Your Credit Balance - Top -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white"><h5 class="mb-0"><i class="fas fa-credit-card"></i> Your Credit Balance</h5></div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label class="form-label text-muted small">Your Credit Balance</label>
+                            <h3 class="text-success mb-0"><?php echo format_currency(isset($credit_balance) ? $credit_balance : 0); ?></h3>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">My Earned Commission</label>
+                            <h3 class="text-primary mb-0"><?php echo format_currency(isset($commission_earned) ? $commission_earned : 0); ?></h3>
+                        </div>
+                    </div>
+                    <?php if (!empty($can_withdraw)): ?>
+                    <button type="button" class="btn btn-success btn-lg mt-3" data-bs-toggle="modal" data-bs-target="#withdrawModal"><i class="fas fa-hand-holding-usd"></i> Withdraw</button>
+                    <?php elseif (!empty($has_pending_withdraw)): ?>
+                    <div class="alert alert-info mt-3 mb-0"><i class="fas fa-clock"></i> Withdraw request pending - Admin approve karega</div>
+                    <?php else: ?>
+                    <div class="alert alert-secondary mt-3 mb-0"><i class="fas fa-info-circle"></i> Withdraw karne ke liye pehle pura credit earn karein</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Withdraw Modal -->
+            <?php if (!empty($can_withdraw)): ?>
+            <div class="modal fade" id="withdrawModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Withdraw Request</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="withdrawForm" method="POST" action="<?php echo base_url('affiliate/withdraw_request'); ?>">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Bank Name</label>
+                                    <input type="text" name="bank_name" class="form-control" required placeholder="e.g. HBL, UBL">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Account Number</label>
+                                    <input type="text" name="account_number" class="form-control" required placeholder="Account number">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-success">Submit</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
             
             <!-- Stats Cards -->
             <div class="row mb-4">
@@ -91,7 +145,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Performance Graph -->
             <div class="card mb-4">
                 <div class="card-header">

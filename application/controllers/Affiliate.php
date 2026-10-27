@@ -5,7 +5,7 @@ class Affiliate extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->load->model(['Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model']);
+        $this->load->model(['Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model', 'Withdraw_request_model']);
         $this->load->library('session');
         
         // Don't check auth for landing page
@@ -79,10 +79,15 @@ class Affiliate extends CI_Controller {
         // Get affiliate stats
         $stats = $this->Affiliate_model->get_stats($affiliate->id);
         
+        // Default cover: affiliate's cover OR settings default (jab admin ne affiliate pe set nahi kiya)
+        $settings = $this->Settings_model->get_all();
+        $default_cover = isset($settings['default_cover_image']) && !empty($settings['default_cover_image']) ? $settings['default_cover_image'] : '';
+        
         $data = [
             'affiliate' => $affiliate,
             'stats' => $stats,
-            'discount_percent' => $discount_percent
+            'discount_percent' => $discount_percent,
+            'default_cover_image' => $default_cover
         ];
         
         $this->load->view('affiliate/landing', $data);
@@ -92,23 +97,40 @@ class Affiliate extends CI_Controller {
     public function dashboard() {
         $affiliate_id = $this->session->userdata('affiliate_id');
         $affiliate = $this->Affiliate_model->get_by_id($affiliate_id);
-        
+
         // Get stats
         $stats = $this->Affiliate_model->get_stats($affiliate_id);
-        
+
         // Get recent commissions
         $commissions = $this->Commission_model->get_by_affiliate($affiliate_id, [], 10);
-        
+
         // Get weekly performance data for graph
         $graph_data = $this->Affiliate_model->get_weekly_performance($affiliate_id);
         
+        // Credit amount from settings - commission earned = remaining (sab ke liye same)
+        $commission_earned = (float) $stats['total_commission'];
+        $settings = $this->Settings_model->get_all();
+        $credit_base = (isset($settings['credit_amount']) && $settings['credit_amount'] !== '') 
+            ? (float) $settings['credit_amount'] 
+            : 100000; // default 1 lakh
+        $credit_balance = max(0, $credit_base - $commission_earned);
+
+        // Can withdraw when full credit earned (commission >= credit_base)
+        $can_withdraw = ($credit_base > 0 && $commission_earned >= $credit_base);
+        $has_pending_withdraw = ($this->db->table_exists('withdraw_requests')) ? $this->Withdraw_request_model->has_pending($affiliate_id) : false;
+
         $data = [
             'affiliate' => $affiliate,
             'stats' => $stats,
             'commissions' => $commissions,
-            'graph_data' => $graph_data
+            'graph_data' => $graph_data,
+            'credit_balance' => $credit_balance,
+            'credit_base' => $credit_base,
+            'commission_earned' => $commission_earned,
+            'can_withdraw' => $can_withdraw && !$has_pending_withdraw,
+            'has_pending_withdraw' => $has_pending_withdraw
         ];
-        
+
         $this->load->view('affiliate/dashboard', $data);
     }
 
@@ -124,17 +146,19 @@ class Affiliate extends CI_Controller {
                 'bio' => $this->input->post('bio'),
                 'hubspot_token' => $this->input->post('hubspot_token')
             ];
+            $upload_error = false;
             
             // Handle profile picture upload
             if (!empty($_FILES['profile_picture']['name'])) {
-                // Create directory if not exists
+                // Create directory if not exists (0777 for web server write permission)
                 $upload_path = FCPATH . 'uploads/profile/';
                 if (!is_dir($upload_path)) {
-                    mkdir($upload_path, 0755, true);
+                    mkdir($upload_path, 0777, true);
+                    chmod($upload_path, 0777);
                 }
                 
                 $config['upload_path'] = $upload_path;
-                $config['allowed_types'] = 'gif|jpg|jpeg|png';
+                $config['allowed_types'] = 'gif|jpg|jpeg|png|webp|bmp|ico|tiff|tif';
                 $config['max_size'] = 2048;
                 $config['encrypt_name'] = TRUE;
                 
@@ -143,6 +167,9 @@ class Affiliate extends CI_Controller {
                 if ($this->upload->do_upload('profile_picture')) {
                     $upload_data = $this->upload->data();
                     $update_data['profile_picture'] = 'uploads/profile/' . $upload_data['file_name'];
+                } else {
+                    $this->session->set_flashdata('error', 'Profile picture upload failed: ' . $this->upload->display_errors());
+                    $upload_error = true;
                 }
             }
             
@@ -150,14 +177,15 @@ class Affiliate extends CI_Controller {
             if (!empty($_FILES['cover_image']['name'])) {
                 // Check if affiliate is special (allowed to change banner)
                 if ($affiliate->is_special == 1) {
-                    // Create directory if not exists
+                    // Create directory if not exists (0777 for web server write permission)
                     $upload_path = FCPATH . 'uploads/cover/';
                     if (!is_dir($upload_path)) {
-                        mkdir($upload_path, 0755, true);
+                        mkdir($upload_path, 0777, true);
+                        chmod($upload_path, 0777);
                     }
                     
                     $config['upload_path'] = $upload_path;
-                    $config['allowed_types'] = 'gif|jpg|jpeg|png';
+                    $config['allowed_types'] = 'gif|jpg|jpeg|png|webp|bmp|ico|tiff|tif';
                     $config['max_size'] = 3072; // 3MB for banner
                     $config['encrypt_name'] = TRUE;
                     
@@ -166,6 +194,9 @@ class Affiliate extends CI_Controller {
                     if ($this->upload->do_upload('cover_image')) {
                         $upload_data = $this->upload->data();
                         $update_data['cover_image'] = 'uploads/cover/' . $upload_data['file_name'];
+                    } else {
+                        $this->session->set_flashdata('error', 'Banner image upload failed: ' . $this->upload->display_errors());
+                        $upload_error = true;
                     }
                 } else {
                     $this->session->set_flashdata('error', 'You are not allowed to change banner image. Contact admin.');
@@ -173,7 +204,9 @@ class Affiliate extends CI_Controller {
             }
             
             if ($this->Affiliate_model->update($affiliate_id, $update_data)) {
-                $this->session->set_flashdata('success', 'Profile updated successfully!');
+                if (!$upload_error) {
+                    $this->session->set_flashdata('success', 'Profile updated successfully!');
+                }
             } else {
                 $this->session->set_flashdata('error', 'Failed to update profile');
             }
@@ -211,6 +244,50 @@ class Affiliate extends CI_Controller {
         }
         
         $this->load->view('affiliate/change_password');
+    }
+
+    // Withdraw request - when full credit earned
+    public function withdraw_request() {
+        $affiliate_id = $this->session->userdata('affiliate_id');
+        if (!$affiliate_id || !$this->input->post()) {
+            redirect('affiliate/dashboard');
+            return;
+        }
+        $settings = $this->Settings_model->get_all();
+        $credit_base = isset($settings['credit_amount']) ? (float)$settings['credit_amount'] : 0;
+        $stats = $this->Affiliate_model->get_stats($affiliate_id);
+        $commission_earned = (float) $stats['total_commission'];
+        if ($credit_base <= 0 || $commission_earned < $credit_base) {
+            $this->session->set_flashdata('error', 'Withdraw karne ke liye pehle pura credit earn karein');
+            redirect('affiliate/dashboard');
+            return;
+        }
+        if ($this->Withdraw_request_model->has_pending($affiliate_id)) {
+            $this->session->set_flashdata('error', 'Aapki pehli request abhi pending hai');
+            redirect('affiliate/dashboard');
+            return;
+        }
+        if (!$this->db->table_exists('withdraw_requests')) {
+            $this->session->set_flashdata('error', 'Withdraw system ready nahi. Pehle run_withdraw_migration.php run karein.');
+            redirect('affiliate/dashboard');
+            return;
+        }
+        $bank_name = trim($this->input->post('bank_name'));
+        $account_number = trim($this->input->post('account_number'));
+        $create_data = [
+            'affiliate_id' => $affiliate_id,
+            'amount' => $commission_earned,
+            'status' => 'pending',
+            'bank_name' => $bank_name ?: null,
+            'account_number' => $account_number ?: null
+        ];
+        $id = $this->Withdraw_request_model->create($create_data);
+        if ($id) {
+            $this->session->set_flashdata('success', 'Request submitted successfully!');
+        } else {
+            $this->session->set_flashdata('error', 'Request fail ho gayi. Dobara try karein.');
+        }
+        redirect('affiliate/dashboard');
     }
 
     // Commissions

@@ -228,8 +228,9 @@ if (!isset($settings)) {
                         </li>
                     <?php elseif ($this->session->userdata('admin_id')): ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php echo base_url('admin/dashboard'); ?>">
-                                <i class="fas fa-tachometer-alt"></i> Admin Dashboard
+                            <?php $h_admin_role = $this->session->userdata('admin_role'); ?>
+                            <a class="nav-link" href="<?php echo ($h_admin_role === 'leads_access') ? base_url('admin/leads') : base_url('admin/dashboard'); ?>">
+                                <i class="fas fa-<?php echo ($h_admin_role === 'leads_access') ? 'list' : 'tachometer-alt'; ?>"></i> <?php echo ($h_admin_role === 'leads_access') ? 'Leads' : 'Admin Dashboard'; ?>
                             </a>
                         </li>
                         <li class="nav-item">

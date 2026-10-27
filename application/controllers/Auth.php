@@ -71,15 +71,16 @@ class Auth extends CI_Controller {
                         $affiliate = $this->Affiliate_model->get_by_id($affiliate_id);
                         if ($affiliate) {
                             $this->send_verification_email($affiliate);
-                            $this->session->set_flashdata('success', 'Account created successfully! Please check your email to verify your account.');
+                            $this->session->set_flashdata('success', 'Account created successfully! Your account is pending approval. An administrator will review and approve your account shortly.');
                         } else {
-                            $this->session->set_flashdata('error', 'Account created but could not send verification email. Please contact support.');
+                            $this->session->set_flashdata('success', 'Account created successfully! Your account is pending approval. An administrator will review and approve your account shortly.');
                         }
                     } catch (Exception $e) {
                         log_message('error', 'Error sending verification email: ' . $e->getMessage());
-                        $this->session->set_flashdata('success', 'Account created successfully! However, verification email could not be sent. Please contact support.');
+                        $this->session->set_flashdata('success', 'Account created successfully! Your account is pending approval. An administrator will review and approve your account shortly.');
                     }
-                    redirect('auth/signup');
+                    $return_url = $this->input->post('return_url') ?: $this->input->get('return_url');
+                    redirect($return_url ? $return_url : 'auth/signup');
                 } else {
                     // Get database error
                     $db_error = $this->db->error();
@@ -87,9 +88,20 @@ class Auth extends CI_Controller {
                     $this->session->set_flashdata('error', 'Failed to create account. Please try again or contact support.');
                 }
             } else {
-                // Validation failed - errors will be shown automatically
+                // Validation failed
                 log_message('debug', 'Signup validation failed');
             }
+        }
+
+        // Redirect to home if return_url provided (form submitted from home page)
+        $return_url = $this->input->post('return_url') ?: $this->input->get('return_url');
+        if ($return_url && $this->input->post()) {
+            $this->session->set_flashdata('validation_errors', validation_errors());
+            if (validation_errors()) {
+                $this->session->set_flashdata('error', 'Please correct the errors below.');
+            }
+            redirect($return_url . '#forms-section');
+            return;
         }
 
         $this->load->view('auth/signup');
@@ -120,6 +132,11 @@ class Auth extends CI_Controller {
                 redirect('affiliate/dashboard');
             } else {
                 $this->session->set_flashdata('error', 'Invalid credentials or account not active');
+                $return_url = $this->input->post('return_url') ?: $this->input->get('return_url');
+                if ($return_url) {
+                    redirect($return_url . '#forms-section');
+                    return;
+                }
             }
         }
 

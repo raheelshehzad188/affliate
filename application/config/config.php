@@ -36,7 +36,7 @@ if ($is_localhost) {
 	$config['base_url'] = 'http://'.$server_ip.'/affliate/';
 } else {
 	// Live/Production base URL
-	$config['base_url'] = 'https://peachpuff-armadillo-851546.hostingersite.com/';
+	$config['base_url'] = 'http://affiliate.londonaestheticsuk.com/';
 }
 
 /*

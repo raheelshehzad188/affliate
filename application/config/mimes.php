@@ -86,6 +86,8 @@ return array(
 	'mj2'	=>	array('image/jp2', 'video/mj2', 'image/jpx', 'image/jpm'),
 	'mjp2'	=>	array('image/jp2', 'video/mj2', 'image/jpx', 'image/jpm'),
 	'png'	=>	array('image/png', 'image/x-png'),
+	'webp'	=>	array('image/webp'),
+	'ico'	=>	array('image/x-icon', 'image/vnd.microsoft.icon'),
 	'tiff'	=>	'image/tiff',
 	'tif'	=>	'image/tiff',
 	'heic' 	=>	'image/heic',

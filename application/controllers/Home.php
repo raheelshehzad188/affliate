@@ -23,7 +23,7 @@ class Home extends CI_Controller {
             'settings' => $settings
         ];
         
-        $this->load->view('home/index', $data);
+        $this->load->view('home/new_landing', $data);
     }
 }
 

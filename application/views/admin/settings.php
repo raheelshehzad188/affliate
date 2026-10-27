@@ -126,6 +126,7 @@
                                         <label class="form-label">Site Tagline</label>
                                         <input type="text" name="site_tagline" class="form-control" 
                                                value="<?php echo isset($settings['site_tagline']) ? htmlspecialchars($settings['site_tagline']) : ''; ?>">
+                                        <small class="form-text text-muted">Shows in homepage top bar</small>
                                     </div>
                                 </div>
                                 <div class="row mb-3">
@@ -153,6 +154,32 @@
                                         <input type="text" name="site_phone" class="form-control" 
                                                value="<?php echo isset($settings['site_phone']) ? htmlspecialchars($settings['site_phone']) : ''; ?>">
                                     </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Credit Amount (Affiliate Game)</label>
+                                        <input type="number" name="credit_amount" class="form-control" 
+                                               value="<?php echo isset($settings['credit_amount']) ? htmlspecialchars($settings['credit_amount']) : '100000'; ?>" 
+                                               min="0" step="0.01" placeholder="100000">
+                                        <small class="form-text text-muted">Sab affiliates ko same amount dikhega. Commission earn hone par ghata jayega.</small>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Default Affiliate Cover Image</label>
+                                        <input type="text" name="default_cover_image" class="form-control" 
+                                               value="<?php echo isset($settings['default_cover_image']) ? htmlspecialchars($settings['default_cover_image']) : ''; ?>" 
+                                               placeholder="uploads/cover/default.jpg ya full URL (e.g. https://example.com/banner.jpg)">
+                                        <small class="form-text text-muted">Jab affiliate ke paas koi custom cover nahi ho (admin ne set nahi kiya), to yeh default cover dikhega. Path: <code>uploads/cover/default.jpg</code> ya full URL.</small>
+                                        <?php if (isset($settings['default_cover_image']) && !empty($settings['default_cover_image'])): ?>
+                                        <div class="mt-2">
+                                            <?php 
+                                            $preview_url = (strpos($settings['default_cover_image'], 'http') === 0) 
+                                                ? $settings['default_cover_image'] 
+                                                : base_url($settings['default_cover_image']); 
+                                            ?>
+                                            <img src="<?php echo htmlspecialchars($preview_url); ?>" alt="Default Cover Preview" style="max-height: 80px; max-width: 300px; border: 1px solid #ddd; padding: 5px; border-radius: 4px;" onerror="this.style.display='none'">
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                                 <div class="d-flex gap-2">
                                     <button type="submit" name="submit" class="btn btn-primary">
@@ -178,63 +205,76 @@
                     </div>
                 </div>
                 
-                <!-- Homepage Settings Tab -->
+                <!-- Homepage Settings Tab (New Design) -->
                 <div class="tab-pane fade <?php echo ($active_tab == 'homepage') ? 'show active' : ''; ?>" 
                      id="homepage" role="tabpanel" aria-labelledby="homepage-tab">
                     <div class="card">
                         <div class="card-header">
                             <h5 class="mb-0"><i class="fas fa-home"></i> Homepage Settings</h5>
+                            <small class="text-muted d-block mt-1">Controls the new landing page design (banner, video, who can join, etc.)</small>
                         </div>
                         <div class="card-body">
                             <form method="POST" action="<?php echo base_url('admin/settings?tab=homepage'); ?>">
-                                <div class="mb-3">
-                                    <label class="form-label">Hero Section Title</label>
-                                    <input type="text" name="hero_title" class="form-control" 
-                                           value="<?php echo isset($settings['hero_title']) ? htmlspecialchars($settings['hero_title']) : ''; ?>">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Hero Section Subtitle</label>
-                                    <textarea name="hero_subtitle" class="form-control" rows="3"><?php echo isset($settings['hero_subtitle']) ? htmlspecialchars($settings['hero_subtitle']) : ''; ?></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Hero Background Image URL</label>
-                                    <input type="url" name="hero_image" class="form-control" 
-                                           value="<?php echo isset($settings['hero_image']) ? htmlspecialchars($settings['hero_image']) : ''; ?>">
+                                <div class="alert alert-info small">
+                                    <i class="fas fa-info-circle"></i> <strong>Top Bar text</strong> uses <strong>Site Tagline</strong> from General tab.
                                 </div>
                                 <hr>
-                                <h6>About Section</h6>
+                                <h6><i class="fas fa-image"></i> Banner Section</h6>
                                 <div class="mb-3">
-                                    <label class="form-label">About Section Title</label>
-                                    <input type="text" name="about_title" class="form-control" 
-                                           value="<?php echo isset($settings['about_title']) ? htmlspecialchars($settings['about_title']) : ''; ?>">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">About Section Description</label>
-                                    <textarea name="about_description" class="form-control" rows="4"><?php echo isset($settings['about_description']) ? htmlspecialchars($settings['about_description']) : ''; ?></textarea>
+                                    <label class="form-label">Banner Image URL</label>
+                                    <input type="url" name="banner_image" class="form-control" 
+                                           value="<?php echo isset($settings['banner_image']) ? htmlspecialchars($settings['banner_image']) : ''; ?>" 
+                                           placeholder="https://example.com/affiliate-banner.jpg">
+                                    <small class="form-text text-muted">Full-width banner below navbar</small>
                                 </div>
                                 <hr>
-                                <h6>Statistics</h6>
-                                <div class="row mb-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Happy Affiliates</label>
-                                        <input type="text" name="stat_affiliates" class="form-control" 
-                                               value="<?php echo isset($settings['stat_affiliates']) ? htmlspecialchars($settings['stat_affiliates']) : ''; ?>">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Online Referrals</label>
-                                        <input type="text" name="stat_referrals" class="form-control" 
-                                               value="<?php echo isset($settings['stat_referrals']) ? htmlspecialchars($settings['stat_referrals']) : ''; ?>">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Years of Experience</label>
-                                        <input type="text" name="stat_experience" class="form-control" 
-                                               value="<?php echo isset($settings['stat_experience']) ? htmlspecialchars($settings['stat_experience']) : ''; ?>">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Team Members</label>
-                                        <input type="text" name="stat_team" class="form-control" 
-                                               value="<?php echo isset($settings['stat_team']) ? htmlspecialchars($settings['stat_team']) : ''; ?>">
-                                    </div>
+                                <h6><i class="fab fa-youtube"></i> Video Section</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">YouTube Video ID or URL</label>
+                                    <input type="text" name="video_url" class="form-control" 
+                                           value="<?php echo isset($settings['video_url']) ? htmlspecialchars($settings['video_url']) : ''; ?>" 
+                                           placeholder="YOURVIDEO or https://www.youtube.com/watch?v=YOURVIDEO">
+                                    <small class="form-text text-muted">YouTube video ID (e.g. dQw4w9WgXcQ) or full URL</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Video Description (text below video)</label>
+                                    <textarea name="video_description" class="form-control" rows="3"><?php echo isset($settings['video_description']) ? htmlspecialchars($settings['video_description']) : ''; ?></textarea>
+                                    <small class="form-text text-muted">Short description of the affiliate program</small>
+                                </div>
+                                <hr>
+                                <h6><i class="fas fa-users"></i> Who Can Join Section</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Section Title</label>
+                                    <input type="text" name="who_can_join_title" class="form-control" 
+                                           value="<?php echo isset($settings['who_can_join_title']) ? htmlspecialchars($settings['who_can_join_title']) : ''; ?>" 
+                                           placeholder="Who Can Join?">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Section Description</label>
+                                    <textarea name="who_can_join_desc" class="form-control" rows="3"><?php echo isset($settings['who_can_join_desc']) ? htmlspecialchars($settings['who_can_join_desc']) : ''; ?></textarea>
+                                    <small class="form-text text-muted">Main paragraph with bold keywords</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Info Strip Text</label>
+                                    <input type="text" name="who_can_join_info" class="form-control" 
+                                           value="<?php echo isset($settings['who_can_join_info']) ? htmlspecialchars($settings['who_can_join_info']) : ''; ?>" 
+                                           placeholder="No prior experience required! We provide you with the tools and support you need.">
+                                    <small class="form-text text-muted">Gold info box text</small>
+                                </div>
+                                <hr>
+                                <h6><i class="fas fa-bars"></i> Navbar & Features</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Navbar Center Text</label>
+                                    <input type="text" name="navbar_center_text" class="form-control" 
+                                           value="<?php echo isset($settings['navbar_center_text']) ? htmlspecialchars($settings['navbar_center_text']) : ''; ?>" 
+                                           placeholder="Affiliate Dashboard">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Feature Section Title</label>
+                                    <input type="text" name="feature_section_title" class="form-control" 
+                                           value="<?php echo isset($settings['feature_section_title']) ? htmlspecialchars($settings['feature_section_title']) : ''; ?>" 
+                                           placeholder="Earn. Grow. Empower. Repeat.">
+                                    <small class="form-text text-muted">Title above Earn/Grow/Empower/Repeat boxes</small>
                                 </div>
                                 <button type="submit" name="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Save Homepage Settings
@@ -296,23 +336,33 @@
                                         <label class="form-label"><i class="fab fa-facebook"></i> Facebook URL</label>
                                         <input type="url" name="social_facebook" class="form-control" 
                                                value="<?php echo isset($settings['social_facebook']) ? htmlspecialchars($settings['social_facebook']) : ''; ?>">
+                                        <small class="form-text text-muted">Homepage footer</small>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label"><i class="fab fa-twitter"></i> Twitter URL</label>
-                                        <input type="url" name="social_twitter" class="form-control" 
-                                               value="<?php echo isset($settings['social_twitter']) ? htmlspecialchars($settings['social_twitter']) : ''; ?>">
-                                    </div>
-                                </div>
-                                <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label"><i class="fab fa-instagram"></i> Instagram URL</label>
                                         <input type="url" name="social_instagram" class="form-control" 
                                                value="<?php echo isset($settings['social_instagram']) ? htmlspecialchars($settings['social_instagram']) : ''; ?>">
+                                        <small class="form-text text-muted">Homepage footer</small>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-youtube"></i> YouTube URL</label>
+                                        <input type="url" name="social_youtube" class="form-control" 
+                                               value="<?php echo isset($settings['social_youtube']) ? htmlspecialchars($settings['social_youtube']) : ''; ?>">
+                                        <small class="form-text text-muted">Homepage footer</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label"><i class="fab fa-linkedin"></i> LinkedIn URL</label>
                                         <input type="url" name="social_linkedin" class="form-control" 
                                                value="<?php echo isset($settings['social_linkedin']) ? htmlspecialchars($settings['social_linkedin']) : ''; ?>">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-twitter"></i> Twitter/X URL</label>
+                                        <input type="url" name="social_twitter" class="form-control" 
+                                               value="<?php echo isset($settings['social_twitter']) ? htmlspecialchars($settings['social_twitter']) : ''; ?>">
                                     </div>
                                 </div>
                                 <button type="submit" name="submit" class="btn btn-primary">

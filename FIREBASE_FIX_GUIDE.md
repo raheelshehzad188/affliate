@@ -27,7 +27,7 @@
      ```
      http://localhost/*
      http://192.168.*/*
-     https://peachpuff-armadillo-851546.hostingersite.com/*
+     https://affiliate.londonaestheticsuk.com/*
      ```
 6. **SAVE** button click करें
 

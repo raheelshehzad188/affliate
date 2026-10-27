@@ -79,7 +79,9 @@
                         <div class="col-md-3">
                             <select name="role" class="form-select">
                                 <option value="">All Roles</option>
-                                <option value="admin" <?php echo ($filters['role'] == 'admin') ? 'selected' : ''; ?>>Admin</option>
+                                <option value="full_access" <?php echo ($filters['role'] == 'full_access') ? 'selected' : ''; ?>>Full Access</option>
+                                <option value="leads_access" <?php echo ($filters['role'] == 'leads_access') ? 'selected' : ''; ?>>Leads Access Only</option>
+                                <option value="admin" <?php echo ($filters['role'] == 'admin') ? 'selected' : ''; ?>>Admin (Legacy)</option>
                                 <option value="super_admin" <?php echo ($filters['role'] == 'super_admin') ? 'selected' : ''; ?>>Super Admin</option>
                             </select>
                         </div>
@@ -119,7 +121,13 @@
                                             <td><?php echo htmlspecialchars($admin->username); ?></td>
                                             <td><?php echo htmlspecialchars($admin->email); ?></td>
                                             <td>
-                                                <span class="badge <?php echo $admin->role == 'super_admin' ? 'bg-danger' : 'bg-primary'; ?>">
+                                                <?php 
+                                                $role_badge = 'bg-secondary';
+                                                if ($admin->role == 'super_admin') $role_badge = 'bg-danger';
+                                                elseif (in_array($admin->role, ['full_access', 'admin'])) $role_badge = 'bg-primary';
+                                                elseif ($admin->role == 'leads_access') $role_badge = 'bg-info';
+                                                ?>
+                                                <span class="badge <?php echo $role_badge; ?>">
                                                     <?php echo ucfirst(str_replace('_', ' ', $admin->role)); ?>
                                                 </span>
                                             </td>

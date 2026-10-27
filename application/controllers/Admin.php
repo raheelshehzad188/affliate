@@ -5,7 +5,7 @@ class Admin extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->load->model(['Admin_model', 'Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model', 'Activity_log_model']);
+        $this->load->model(['Admin_model', 'Affiliate_model', 'Lead_model', 'Commission_model', 'Click_model', 'Settings_model', 'Activity_log_model', 'Withdraw_request_model']);
         
         // Don't check authentication for login and logout methods
         $current_method = $this->uri->segment(2);
@@ -14,6 +14,19 @@ class Admin extends CI_Controller {
         if (!in_array($current_method, $allowed_methods)) {
             if (!$this->session->userdata('admin_id')) {
                 redirect('admin/login');
+            }
+            // Always sync role from DB (fixes stale session after role change)
+            $admin_id = $this->session->userdata('admin_id');
+            $admin_row = $this->Admin_model->get_by_id($admin_id);
+            $admin_role = ($admin_row && isset($admin_row->role)) ? $admin_row->role : 'admin';
+            $this->session->set_userdata('admin_role', $admin_role);
+            // Leads Access: sirf dashboard + leads + confirm
+            if ($admin_role === 'leads_access') {
+                $leads_allowed = array('dashboard', 'leads', 'confirm_lead');
+                if (!in_array($current_method, $leads_allowed)) {
+                    redirect('admin/leads');
+                    return;
+                }
             }
         }
     }
@@ -46,6 +59,7 @@ class Admin extends CI_Controller {
         $from_date = $this->input->get('from') ?: date('Y-m-01');
         $to_date = $this->input->get('to') ?: date('Y-m-t');
         
+        $admin_role = $this->session->userdata('admin_role');
         $data = [
             'total_affiliates' => count($this->Affiliate_model->get_all(['status' => 'active'])),
             'pending_affiliates' => count($this->Affiliate_model->get_all(['status' => 'pending'])),
@@ -54,7 +68,8 @@ class Admin extends CI_Controller {
             'confirmed_leads' => $this->Lead_model->count(['status' => 'confirmed'], $from_date, $to_date),
             'from_date' => $from_date,
             'to_date' => $to_date,
-            'is_super_admin' => $this->check_is_super_admin()
+            'is_super_admin' => $this->check_is_super_admin(),
+            'is_leads_only' => ($admin_role === 'leads_access')
         ];
         
         $this->load->view('admin/dashboard', $data);
@@ -157,7 +172,7 @@ class Admin extends CI_Controller {
                     $update_data['discount_max'] = null; // Use global setting
                 }
             }
-            
+
             // Update slug if provided
             $new_slug = trim($this->input->post('slug'));
             if (!empty($new_slug)) {
@@ -188,7 +203,7 @@ class Admin extends CI_Controller {
                 }
                 
                 $config['upload_path'] = $upload_path;
-                $config['allowed_types'] = 'gif|jpg|jpeg|png';
+                $config['allowed_types'] = 'gif|jpg|jpeg|png|webp|bmp|ico|tiff|tif';
                 $config['max_size'] = 2048;
                 $config['encrypt_name'] = TRUE;
                 
@@ -210,7 +225,7 @@ class Admin extends CI_Controller {
                 }
                 
                 $config['upload_path'] = $upload_path;
-                $config['allowed_types'] = 'gif|jpg|jpeg|png';
+                $config['allowed_types'] = 'gif|jpg|jpeg|png|webp|bmp|ico|tiff|tif';
                 $config['max_size'] = 3072; // 3MB for banner
                 $config['encrypt_name'] = TRUE;
                 
@@ -336,6 +351,7 @@ class Admin extends CI_Controller {
             'to_date' => $to_date ?: ''
         ];
         
+        $admin_role = $this->session->userdata('admin_role');
         $data = [
             'leads' => $leads,
             'filters' => $view_filters,
@@ -344,9 +360,11 @@ class Admin extends CI_Controller {
                 'per_page' => $per_page,
                 'current_page' => $page
             ],
-            'affiliates' => $this->Affiliate_model->get_all()
+            'affiliates' => $this->Affiliate_model->get_all(),
+            'is_leads_only' => ($admin_role === 'leads_access'),
+            'is_super_admin' => $this->check_is_super_admin()
         ];
-        
+
         $this->load->view('admin/leads', $data);
     }
 
@@ -410,7 +428,9 @@ class Admin extends CI_Controller {
     // Admin Login
     public function login() {
         if ($this->session->userdata('admin_id')) {
-            redirect('admin/dashboard');
+            $role = $this->session->userdata('admin_role');
+            redirect($role === 'leads_access' ? 'admin/leads' : 'admin/dashboard');
+            return;
         }
         
         if ($this->input->post()) {
@@ -455,7 +475,8 @@ class Admin extends CI_Controller {
                     $session_check = $this->session->userdata('admin_id');
                     if ($session_check) {
                         log_message('debug', 'Session set successfully - Admin ID: ' . $session_check . ' - Redirecting to dashboard');
-                        redirect('admin/dashboard');
+                        $role = isset($admin->role) ? $admin->role : 'admin';
+                        redirect($role === 'leads_access' ? 'admin/leads' : 'admin/dashboard');
                         return; // Important: stop execution after redirect
                     } else {
                         log_message('error', 'Session not set after login attempt - Session data: ' . print_r($this->session->all_userdata(), true));
@@ -502,7 +523,11 @@ class Admin extends CI_Controller {
             redirect('admin/change_password');
         }
         
-        $this->load->view('admin/change_password');
+        $admin_role = $this->session->userdata('admin_role');
+        $this->load->view('admin/change_password', [
+            'is_leads_only' => ($admin_role === 'leads_access'),
+            'is_super_admin' => $this->check_is_super_admin()
+        ]);
     }
 
     // Settings
@@ -661,12 +686,14 @@ class Admin extends CI_Controller {
             $this->form_validation->set_rules('full_name', 'Full Name', 'required');
 
             if ($this->form_validation->run()) {
+                $role = $this->input->post('role');
+                $role = in_array($role, ['full_access', 'leads_access']) ? $role : 'full_access';
                 $data = [
                     'username' => $this->input->post('username'),
                     'email' => $this->input->post('email'),
                     'password' => $this->input->post('password'),
                     'full_name' => $this->input->post('full_name'),
-                    'role' => 'admin' // Sub-admins are always 'admin', not 'super_admin'
+                    'role' => $role
                 ];
 
                 $new_admin_id = $this->Admin_model->create($data);
@@ -675,11 +702,11 @@ class Admin extends CI_Controller {
                     // Log the creation
                     $this->log_activity(
                         'sub_admin_created',
-                        "Sub-admin '{$data['full_name']}' (Username: {$data['username']}) created",
+                        "Sub-admin '{$data['full_name']}' (Username: {$data['username']}) created with role: " . $role,
                         'admin_user',
                         $new_admin_id,
                         null,
-                        ['username' => $data['username'], 'email' => $data['email'], 'full_name' => $data['full_name']]
+                        ['username' => $data['username'], 'email' => $data['email'], 'full_name' => $data['full_name'], 'role' => $role]
                     );
                     $this->session->set_flashdata('success', 'Sub-admin created successfully');
                     redirect('admin/sub_admins');
@@ -730,6 +757,12 @@ class Admin extends CI_Controller {
                 'email' => $this->input->post('email')
             ];
 
+            // Update role (not for super_admin)
+            if ($admin->role !== 'super_admin') {
+                $new_role = $this->input->post('role');
+                $update_data['role'] = in_array($new_role, ['full_access', 'leads_access']) ? $new_role : $admin->role;
+            }
+
             // Update password if provided
             $new_password = $this->input->post('password');
             if (!empty($new_password)) {
@@ -743,14 +776,16 @@ class Admin extends CI_Controller {
             }
 
             if ($this->Admin_model->update($id, $update_data)) {
-                // Log the update
+                // Log the update (exclude password from log)
+                $log_new = $update_data;
+                if (isset($log_new['password'])) unset($log_new['password']);
                 $this->log_activity(
                     'sub_admin_updated',
                     "Sub-admin '{$update_data['full_name']}' (ID: {$id}) updated",
                     'admin_user',
                     $id,
                     $old_data,
-                    $update_data
+                    $log_new
                 );
                 $this->session->set_flashdata('success', 'Sub-admin updated successfully');
                 redirect('admin/sub_admins');
@@ -808,30 +843,32 @@ class Admin extends CI_Controller {
         redirect('admin/sub_admins');
     }
 
-    // Activity Logs (Only for super_admin)
+    // Activity Logs - super_admin/full_access: sab dekh sakte; leads_access: sirf apni
     public function activity_logs() {
-        // Check if user is super admin
         $admin_id = $this->session->userdata('admin_id');
-        if (!$this->Admin_model->is_super_admin($admin_id)) {
-            $this->session->set_flashdata('error', 'Access denied. Only super admin can view activity logs.');
-            redirect('admin/dashboard');
-            return;
-        }
+        $admin_role = $this->session->userdata('admin_role');
 
         // Check if activity_logs table exists
         $table_exists = $this->db->table_exists('activity_logs');
         
         if (!$table_exists) {
             $this->session->set_flashdata('error', 'Activity logs table does not exist. Please run the SQL migration file: all_changes_today.sql');
-            redirect('admin/dashboard');
+            redirect($admin_role === 'leads_access' ? 'admin/leads' : 'admin/dashboard');
             return;
         }
 
         $filters = [];
         
-        $admin_filter = $this->input->get('admin_id');
-        if (!empty($admin_filter)) {
-            $filters['admin_id'] = $admin_filter;
+        $admin_filter = '';
+        // leads_access: sirf apni activity (kaun user ne kaunsi lead confirm ki)
+        if ($admin_role === 'leads_access') {
+            $filters['admin_id'] = $admin_id;
+            $filters['entity_type'] = 'lead'; // Sirf lead-related actions
+        } else {
+            $admin_filter = $this->input->get('admin_id');
+            if (!empty($admin_filter)) {
+                $filters['admin_id'] = $admin_filter;
+            }
         }
         
         $action_type = $this->input->get('action_type');
@@ -861,13 +898,13 @@ class Admin extends CI_Controller {
         $logs = $this->Activity_log_model->get_all($filters, $per_page, $offset);
         $total = $this->Activity_log_model->count($filters);
 
-        // Get all admins for filter dropdown
-        $all_admins = $this->Admin_model->get_all();
+        // Get all admins for filter dropdown (sirf super/full access ke liye)
+        $all_admins = $admin_role === 'leads_access' ? [] : $this->Admin_model->get_all();
 
         $data = [
             'logs' => $logs,
             'filters' => [
-                'admin_id' => $admin_filter ?: '',
+                'admin_id' => isset($admin_filter) ? $admin_filter : ($admin_role === 'leads_access' ? $admin_id : ''),
                 'action_type' => $action_type ?: '',
                 'entity_type' => $entity_type ?: '',
                 'from_date' => $from_date ?: '',
@@ -879,10 +916,45 @@ class Admin extends CI_Controller {
                 'current_page' => $page
             ],
             'admins' => $all_admins,
-            'is_super_admin' => true
+            'is_super_admin' => $this->Admin_model->is_super_admin($admin_id),
+            'is_leads_only' => ($admin_role === 'leads_access')
         ];
 
         $this->load->view('admin/activity_logs', $data);
+    }
+
+    // Withdraw requests - admin view & process
+    public function withdraw_requests() {
+        $requests = [];
+        if ($this->db->table_exists('withdraw_requests')) {
+            $status = $this->input->get('status');
+            $filters = $status ? ['status' => $status] : [];
+            $requests = $this->Withdraw_request_model->get_all($filters);
+        }
+        $data = ['requests' => $requests];
+        $this->load->view('admin/withdraw_requests', $data);
+    }
+
+    public function approve_withdraw($id) {
+        $amount = $this->input->post('amount');
+        $update = ['status' => 'approved'];
+        if ($amount !== null && $amount !== '' && is_numeric($amount)) {
+            $update['amount'] = (float) $amount;
+        }
+        if ($this->Withdraw_request_model->update($id, $update)) {
+            $this->session->set_flashdata('success', 'Withdraw request approved');
+        } else {
+            $this->session->set_flashdata('error', 'Failed');
+        }
+        redirect('admin/withdraw_requests');
+    }
+
+    public function reject_withdraw($id) {
+        $note = $this->input->post('admin_notes');
+        if ($this->Withdraw_request_model->update($id, ['status' => 'rejected', 'admin_notes' => $note])) {
+            $this->session->set_flashdata('success', 'Withdraw request rejected');
+        }
+        redirect('admin/withdraw_requests');
     }
 
     // Validation callbacks for sub-admin

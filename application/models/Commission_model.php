@@ -69,15 +69,20 @@ class Commission_model extends CI_Model {
     }
 
     // Get commissions by affiliate
-    public function get_by_affiliate($affiliate_id, $filters = []) {
+    public function get_by_affiliate($affiliate_id, $filters = [], $limit = null) {
         $this->db->where('affiliate_id', $affiliate_id);
         
-        if (isset($filters['status'])) {
-            $this->db->where('status', $filters['status']);
+        if (is_array($filters)) {
+            if (isset($filters['status'])) {
+                $this->db->where('status', $filters['status']);
+            }
+            if (isset($filters['from_date']) && isset($filters['to_date'])) {
+                $this->db->where('created_at >=', $filters['from_date'] . ' 00:00:00');
+                $this->db->where('created_at <=', $filters['to_date'] . ' 23:59:59');
+            }
         }
-        if (isset($filters['from_date']) && isset($filters['to_date'])) {
-            $this->db->where('created_at >=', $filters['from_date'] . ' 00:00:00');
-            $this->db->where('created_at <=', $filters['to_date'] . ' 23:59:59');
+        if ($limit) {
+            $this->db->limit($limit);
         }
         
         return $this->db->order_by('created_at', 'DESC')->get('commissions')->result();

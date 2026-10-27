@@ -86,8 +86,16 @@
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Role</label>
-                                <input type="text" class="form-control" value="<?php echo ucfirst(str_replace('_', ' ', $admin->role)); ?>" disabled>
+                                <label class="form-label">Role <span class="text-danger">*</span></label>
+                                <?php if ($admin->role === 'super_admin'): ?>
+                                <input type="text" class="form-control" value="Super Admin" disabled>
+                                <input type="hidden" name="role" value="super_admin">
+                                <?php else: ?>
+                                <select name="role" class="form-select" required>
+                                    <option value="full_access" <?php echo ($admin->role == 'full_access') ? 'selected' : ''; ?>>Full Access</option>
+                                    <option value="leads_access" <?php echo ($admin->role == 'leads_access') ? 'selected' : ''; ?>>Leads Access Only</option>
+                                </select>
+                                <?php endif; ?>
                             </div>
                         </div>
                         

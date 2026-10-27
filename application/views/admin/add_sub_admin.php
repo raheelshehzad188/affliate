@@ -99,9 +99,15 @@
                         </div>
                         
                         <div class="mb-3">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Sub-admin will have 'admin' role and can manage affiliates, leads, and commissions.
-                            </div>
+                            <label class="form-label">Role <span class="text-danger">*</span></label>
+                            <select name="role" class="form-select" required>
+                                <option value="full_access" <?php echo set_select('role', 'full_access'); ?>>Full Access</option>
+                                <option value="leads_access" <?php echo set_select('role', 'leads_access'); ?>>Leads Access Only</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                <strong>Full Access:</strong> Dashboard, Affiliates, Leads, Commissions, Settings<br>
+                                <strong>Leads Access:</strong> Sirf Leads section access
+                            </small>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">

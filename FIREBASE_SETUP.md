@@ -37,7 +37,7 @@ To fix the "unregistered callers" error:
    - Select **HTTP referrers** and add your domains:
      - `http://localhost/*`
      - `http://192.168.*/*`
-     - `https://peachpuff-armadillo-851546.hostingersite.com/*`
+     - `https://affiliate.londonaestheticsuk.com/*`
 8. Click **Save**
 
 ## Step 4: Update Firebase Config

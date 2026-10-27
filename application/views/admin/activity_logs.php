@@ -1,10 +1,14 @@
-<?php $this->load->view('layouts/header', ['title' => 'Activity Logs']); ?>
+<?php 
+$is_leads_only = isset($is_leads_only) && $is_leads_only;
+$this->load->view('layouts/header', ['title' => $is_leads_only ? 'My Activity' : 'Activity Logs']); 
+?>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 sidebar">
             <h4 class="text-center mb-4"><i class="fas fa-shield-alt"></i> Admin</h4>
             <ul class="nav flex-column">
+                <?php if (!isset($is_leads_only) || !$is_leads_only): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/dashboard'); ?>">
                         <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -15,11 +19,13 @@
                         <i class="fas fa-users"></i> Affiliates
                     </a>
                 </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/leads'); ?>">
                         <i class="fas fa-list"></i> Leads
                     </a>
                 </li>
+                <?php if (!isset($is_leads_only) || !$is_leads_only): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/commissions'); ?>">
                         <i class="fas fa-dollar-sign"></i> Commissions
@@ -42,6 +48,13 @@
                     </a>
                 </li>
                 <?php endif; ?>
+                <?php else: ?>
+                <li class="nav-item">
+                    <a class="nav-link active" href="<?php echo base_url('admin/activity_logs'); ?>">
+                        <i class="fas fa-history"></i> My Activity
+                    </a>
+                </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo base_url('admin/change_password'); ?>">
                         <i class="fas fa-key"></i> Change Password
@@ -58,11 +71,15 @@
         <div class="col-md-9">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-history"></i> Activity Logs</h5>
+                    <h5 class="mb-0"><i class="fas fa-history"></i> <?php echo (isset($is_leads_only) && $is_leads_only) ? 'My Lead Confirmations' : 'Activity Logs'; ?></h5>
+                    <?php if (isset($is_leads_only) && $is_leads_only): ?>
+                    <small class="text-muted">Sirf aapki confirmed leads ki history</small>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body">
                     <!-- Filters -->
                     <form method="GET" class="mb-4 row g-3">
+                        <?php if (!isset($is_leads_only) || !$is_leads_only): ?>
                         <div class="col-md-3">
                             <select name="admin_id" class="form-select">
                                 <option value="">All Admins</option>
@@ -73,6 +90,7 @@
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <?php endif; ?>
                         <div class="col-md-2">
                             <select name="action_type" class="form-select">
                                 <option value="">All Actions</option>
@@ -84,6 +102,7 @@
                                 <option value="sub_admin_deleted" <?php echo ($filters['action_type'] == 'sub_admin_deleted') ? 'selected' : ''; ?>>Sub-Admin Deleted</option>
                             </select>
                         </div>
+                        <?php if (!isset($is_leads_only) || !$is_leads_only): ?>
                         <div class="col-md-2">
                             <select name="entity_type" class="form-select">
                                 <option value="">All Types</option>
@@ -92,6 +111,7 @@
                                 <option value="admin_user" <?php echo ($filters['entity_type'] == 'admin_user') ? 'selected' : ''; ?>>Admin User</option>
                             </select>
                         </div>
+                        <?php endif; ?>
                         <div class="col-md-2">
                             <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars($filters['from_date']); ?>">
                         </div>
